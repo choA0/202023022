@@ -1,0 +1,23 @@
+####영화 댓글 스크래핑 -라라랜드 stringr,xml2안써도 결과는 똑같음 #### 
+setwd("C:/Rtest") 
+install.packages(c('httr','rvest')) 
+library(httr); library(rvest);
+
+all.reviews <-c()
+
+
+for(i in 1:10){ 
+  url=paste0("https://movie.naver.com/movie/point/af/list.nhn?st=mcode&sword=134963&target=after&page=",i)
+  res=GET(url)
+  h=read_html(res,encoding = "CP949")
+  comment_area=html_nodes(h,'.list_netizen')
+  comments=html_nodes(comment_area,'.title')
+  reviews=html_text(comments)
+  if(length(reviews)==0){break} 
+  all.reviews=c(all.reviews, reviews)
+  print(i)
+  }
+
+####코드가 길다
+all.reviews
+write.table(all.reviews,'LaLaLand(stringr-rvest-).txt')
