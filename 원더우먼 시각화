@@ -1,0 +1,75 @@
+####웹 스크래핑 - 2차시, 시스템세팅
+install.packages(c('stringr','stringi','tm','sna','xml2','dplyr','qgraph'))
+
+library(KoNLP)
+library(stringr); library(stringi); library(tm); library(sna); library(xml2); library(dplyr); library(qgraph)
+
+##한글 사전 세팅하기
+#use.SejongDic() 카이스트꺼, use.NIADic() 정보진흥원꺼
+useSejongDic()
+f <- file("wonder_1984.txt", encoding="UTF-8")
+fl <- readLines(f)
+close(f)
+
+####전처리 하기 위해 데이터를 시스템에 업로드 완료
+##데이터 전처리하기 gsub 공백으로 처리하라 명령어
+{
+  fl <- gsub("그리고","",fl); fl <- gsub("너무","",fl); fl <- gsub("정말","",fl);
+  fl <- gsub("진짜","",fl); fl <- gsub("그때","",fl); fl <- gsub("있는","",fl); fl <- gsub("을","",fl);fl <- gsub("를","",fl);
+  fl <- gsub("아는","",fl);fl <- gsub("하는","",fl);fl <- gsub("특히","",fl);fl <- gsub("역시","",fl);
+  fl <- gsub("","",fl);
+}
+##비슷한 단어 처리하기 
+fl <- str_replace_all(fl, "[[:punct:]]", "") %>% 
+  str_replace_all("배우[들의|들]", "배우") %>%
+  str_replace_all("원더", "원더우먼") %>%
+  str_replace_all("[0-9]+", " ") %>%
+  str_replace_all("원더우먼[이|은]", "원더우먼")
+
+write.table(fl,"preprocessing.txt")
+##전처리 된 파일 재 업로드
+f_1 <-file("preprocessing.txt", encoding="UTF-8")
+fl_1 <- readLines(f_1)
+fl_1
+close(f_1)
+
+####형태소 분석####
+#형태소 분석을 위한 커스팅 함수 정의
+
+ko.words = function(doc){
+  doc = as.character(doc)
+  doc2<-SimplePos22(doc) 
+  doc3<-str_match(doc2,"[가-힣]+/NC" )
+  doc4<-doc3[,2]
+  doc4[!is.na(doc4)]
+}
+
+options(mc.cores = 1)
+cps = Corpus(VectorSource(fl_1)) 
+
+#토큰화
+tdm <- TermDocumentMatrix(cps, control = list(tokenize = ko.words, removePunctuation=T,removeNumbers=T, wordLengths=c(4,Inf)))
+
+result <- as.matrix(tdm)
+
+## 최빈어 찾기(상위빈도 20개 추출)
+word.count = rowSums(result)
+word.order = order(word.count, decreasing = T)
+freq.word = result[word.order[1:20],]
+freq.word[,1]
+
+freqency <- data.frame(freq.word)
+write.csv(freqency,"wander_1984.csv")
+
+#행렬곱, 공출현행렬 만들기
+
+co.matrix = freq.word %*% t(freq.word)
+co.matrix
+
+qg<-qgraph(co.matrix,labels=rownames(co.matrix),
+           diag=F, layout='spring',
+           label.cex= 2.0, 
+           edge.color='red', 
+           vsize=log(diag(co.matrix))*1.5) 
+
+plot(qg)
