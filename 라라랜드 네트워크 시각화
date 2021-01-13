@@ -1,0 +1,85 @@
+install.packages(c('stringr','stringi','tm','sna','xml2','dplyr','qgraph'))
+
+library(KoNLP)
+library(stringr); library(stringi);library(tm); library(sna);library(xml2);library(qgraph); library(dplyr)
+
+useSejongDic() 
+
+#### 지난시간 수집 데이터 업로딩
+
+f <- file("lalaland(2).txt", encoding="UTF-8") 
+fl <- readLines(f) 
+close(f)
+
+
+#불용어 처리
+{
+  fl <- gsub("그리고","",fl); fl <- gsub("너무","",fl); fl <- gsub("정말","",fl);
+  fl <- gsub("진짜","",fl); fl <- gsub("그때","",fl); fl <- gsub("있는","",fl); fl <- gsub("을","",fl);fl <- gsub("를","",fl);
+  fl <- gsub("아는","",fl);fl <- gsub("하는","",fl);fl <- gsub("특히","",fl);fl <- gsub("역시","",fl);
+  fl <- gsub("","",fl); fl <- gsub("내가","",fl); fl <- gsub("입니다","",fl); fl <- gsub("않았다면","",fl); fl <- gsub("그냥","",fl); 
+  fl <- gsub("다시","",fl); fl <- gsub("만약에","",fl); fl <- gsub("그런","",fl); fl <- gsub("이런","",fl); fl <- gsub("영화","",fl);
+  fl <- gsub("보고","",fl); fl <- gsub("같은","",fl); fl <- gsub("조금","",fl);
+}
+
+#비슷한 단어 처리
+fl <- str_replace_all(fl, "[[:punct:]]", "") %>%
+  str_replace_all("뮤지컬", "뮤지컬영화") %>%
+  str_replace_all("뮤지컬영화영화", "뮤지컬영화") %>%
+  str_replace_all("최고의", "최고") %>%
+  str_replace_all("여운[이|을]", "여운") %>%
+  str_replace_all("[0-9]+", " ") %>%
+  str_replace_all("영화[는|가|에]", "영화")
+
+write.table(fl,"preprocessing.txt")
+
+###전처리 완료된 파일 업로드
+f_1 <- file("preprocessing.txt", encoding="UTF-8")
+fl_1 <- readLines(f_1) 
+close(f_1) 
+
+
+#형태소 분석을 위한 ko.words 라는 이름의 함수를 정
+
+ko.words = function(doc){
+  doc = as.character(doc) 
+  doc2<-SimplePos22(doc)
+  doc3<-str_match(doc2,"[가-힣]+/NC" ) 
+  doc4[!is.na(doc4)] 
+}
+
+options(mc.cores = 1) 
+
+cps = Corpus(VectorSource(fl_1))
+
+#토큰화, ko.words 사용
+
+tdm <- TermDocumentMatrix(cps, control = list(tokenize = ko.words, 
+                                              removePunctuation=T,removeNumbers=T, 
+                                              wordLengths=c(4,Inf)))
+
+result <- as.matrix(tdm) 
+
+#핵심 키워드(최빈어) 찾기
+#상위빈도 15개 추출
+
+word.count = rowSums(result)
+word.order = order(word.count, decreasing = T)
+freq.word = result[word.order[1:15],]
+freq.word[,1]
+
+freqency <- data.frame(freq.word)
+write.csv(freqency,"lalaLand.csv") 
+
+#전치행렬로 바꾼 다음에 곱셈을 통해 공출현 행렬
+co.matrix = freq.word %*% t(freq.word)
+co.matrix
+
+####공출현 행렬을 그래프로 그리기
+qg<-qgraph(co.matrix,labels=rownames(co.matrix), 
+           diag=F, layout='spring', 
+           label.cex= 4.0, 
+           edge.color='green', 
+           vsize=log(diag(co.matrix))*1.5) 
+
+qplot(qg) 
